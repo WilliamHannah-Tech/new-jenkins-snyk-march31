@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     environment {
-        AWS_DEFAULT_REGION = 'us-east-1'
+        AWS_DEFAULT_REGION = 'us-west-2'
         TF_IN_AUTOMATION   = 'true'
+        SNYK_ORG           = credentials('snyk-org-slug')
     }
 
     stages {
@@ -13,18 +14,38 @@ pipeline {
             }
         }
 
-        stage('Terraform Init') {
+        
+        stage('Snyk IaC Scan Monitor') {
             steps {
-                sh 'terraform init'
+                snykSecurity(
+                    snykInstallation: 'snyk',
+                    snykTokenId: 'snyk-api-token',
+                    additionalArguments: '--iac --report --org=$SNYK_ORG --severity-threshold=high',
+                    failOnIssues: true,
+                    monitorProjectOnBuild: false
+                )
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Terraform Init') {
             steps {
-                sh '''
-                    terraform plan -out=tfplan
-                    terraform apply -auto-approve tfplan
-                '''
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'jenkinstest01'
+                ]]) {
+                    sh 'terraform init'
+                }
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: 'jenkinstest01'
+                ]]) {
+                    sh 'terraform plan'
+                }
             }
         }
 
@@ -42,8 +63,14 @@ pipeline {
                             )
                         ]
                     )
+
                     if (destroyChoice == 'yes') {
-                        sh 'terraform destroy -auto-approve'
+                        withCredentials([[
+                            $class: 'AmazonWebServicesCredentialsBinding',
+                            credentialsId: 'jenkinstest01'
+                        ]]) {
+                            sh 'terraform destroy -auto-approve'
+                        }
                     } else {
                         echo "Skipping destroy"
                     }
