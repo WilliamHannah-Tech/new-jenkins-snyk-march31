@@ -16,3 +16,4 @@ A simple declarative Jenkinsfile
 ## User data
 EC2 startup script to bootstrap Jenkins server
 
+# new-jenkins-s3-tests
