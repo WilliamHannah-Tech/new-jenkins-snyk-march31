@@ -13,7 +13,6 @@ pipeline {
                 checkout scm
             }
         }
-
         
         stage('Snyk IaC Scan Monitor') {
             steps {
